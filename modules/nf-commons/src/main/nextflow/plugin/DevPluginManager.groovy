@@ -18,25 +18,38 @@
 package nextflow.plugin
 
 import java.nio.file.Path
+import java.nio.file.Paths
 
 import groovy.transform.CompileStatic
+import groovy.util.logging.Slf4j
+import org.pf4j.CompoundPluginRepository
 import org.pf4j.DefaultPluginManager
 import org.pf4j.DevelopmentPluginRepository
 import org.pf4j.ManifestPluginDescriptorFinder
 import org.pf4j.PluginDescriptorFinder
 import org.pf4j.PluginLoader
 import org.pf4j.PluginRepository
-
 /**
  * Custom plugin manager that allow loading plugins from Groovy/Gradle/Intellij build environment
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Slf4j
 @CompileStatic
 class DevPluginManager extends DefaultPluginManager {
 
     DevPluginManager(Path root) {
         super(root)
+    }
+
+    private List<Path> getExtensionRoots() {
+        final ext = System .getenv('NXF_PLUGINS_DEV')
+        if( !ext )
+            return Collections.emptyList()
+
+        return ext
+                .tokenize(',')
+                .collect { Paths.get(it).toAbsolutePath() }
     }
 
     @Override
@@ -51,7 +64,16 @@ class DevPluginManager extends DefaultPluginManager {
 
     @Override
     protected PluginRepository createPluginRepository() {
-        return new DevelopmentPluginRepository(getPluginsRoot())
+        def repos = new CompoundPluginRepository()
+        // main dev repo
+        log.debug "Add plugin root repository: ${getPluginsRoot()}"
+        repos.add( new DevelopmentPluginRepository(getPluginsRoot()) )
+        // extension repos
+        for( Path it : extensionRoots ) {
+            log.debug "Add plugin dev repository: $it"
+            repos.add( new DevelopmentPluginRepository(it) )
+        }
+        return repos
     }
 
 }

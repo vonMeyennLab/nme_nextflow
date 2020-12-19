@@ -18,6 +18,7 @@
 
 package io.nextflow.gradle.tasks
 
+import com.google.gson.Gson
 import groovy.transform.CompileStatic
 import groovy.transform.Memoized
 import io.nextflow.gradle.util.GithubClient
@@ -79,8 +80,8 @@ class GithubUploader extends DefaultTask {
         final fileName = sourceFile.name
         final asset = client.getReleaseAsset(release.get(), fileName)
         if ( asset ) {
-            if( skipExisting && isSameContent(sourceFile, asset) ) {
-                logger.quiet("${owner}/${repo}/${fileName} exists! -- Skipping it.")
+            if( skipExisting && isSame(sourceFile, asset) ) {
+                logger.quiet("${owner}/${repo.get()}/${fileName} exists! -- Skipping it.")
             }
             else if (overwrite) {
                 updateRelease(sourceFile)
@@ -127,10 +128,36 @@ class GithubUploader extends DefaultTask {
         throw new IllegalArgumentException("Unknown file type: $fileName")
     }
 
-    private boolean isSameContent(File sourceFile, InputStream asset ) {
+    private boolean isSame(File sourceFile, InputStream asset ) {
+        sourceFile.name.endsWith('.json')
+            ? isSameJson0(sourceFile, asset)
+            : isSameBin0(sourceFile, asset)
+    }
+
+    private boolean isSameBin0(File sourceFile, InputStream asset ) {
         final d1 = sourceFile
                 .withInputStream { InputStream it -> DigestUtils.sha512Hex(it) }
         final d2 = DigestUtils.sha512Hex(asset)
         return d1 == d2
     }
+
+    private boolean isSameJson0(File sourceFile, InputStream asset) {
+        def gson = new Gson()
+        def j1 = gson.fromJson(sourceFile.text, Map)
+        def j2 = gson.fromJson( new InputStreamReader(asset), Map)
+        if( j1.version != j2.version ) {
+            logger.quiet("Plugin metafile $sourceFile not matching versions: local=$j1.version; remote: $j2.version")
+            return false
+        }
+        if( j1.url != j2.url ) {
+            logger.quiet("Plugin metafile $sourceFile not matching urls: local=$j1.url; remote: $j2.url")
+            return false
+        }
+        if( j1.sha512sum != j2.sha512sum ) {
+            logger.quiet("Plugin metafile $sourceFile not matching sha512sum: local=$j1.sha512sum; remote: $j2.sha512sum")
+            return false
+        }
+        return true
+    }
+
 }
