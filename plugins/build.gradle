@@ -99,8 +99,7 @@ subprojects {
     task upload(dependsOn: [uploadPlugin] ) { }
 }
 
-task upload(dependsOn: [subprojects.upload]) {
-}
+task upload(dependsOn: [subprojects.upload]) { }
 
 classes.dependsOn subprojects.copyPluginLibs
 assemble.dependsOn subprojects.copyPluginZip

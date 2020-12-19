@@ -19,7 +19,6 @@ rootProject.name = 'nextflow-prj'
 
 include 'nextflow'
 include 'nf-commons'
-include 'nf-console'
 include 'nf-httpfs'
 
 rootProject.children.each { prj ->
