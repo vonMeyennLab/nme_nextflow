@@ -1,5 +1,5 @@
-import io.nextflow.gradle.tasks.PluginsRepositoryPublisher
-import io.nextflow.gradle.tasks.S3Upload
+import io.nextflow.gradle.tasks.GithubUploader
+import io.nextflow.gradle.tasks.GithubRepositoryPublisher
 import org.apache.commons.codec.digest.DigestUtils
 
 apply plugin: 'java'
@@ -17,6 +17,12 @@ String now() {
     "${java.time.OffsetDateTime.now().format(java.time.format.DateTimeFormatter.ISO_DATE_TIME)}"
 }
 
+List<String> allPlugins() {
+    def plugins = []
+    new File(rootProject.rootDir, 'plugins') .eachDir { if(it.name.startsWith('nf-')) plugins.add(it.name) }
+    return plugins
+}
+
 String verFromManifest(File file) {
     def str = file.text
     def regex = ~/(?m)^Plugin-Version:\s*([\w-\.]+)$/
@@ -30,10 +36,6 @@ String verFromManifest(File file) {
 }
 
 def timestamp = now()
-
-ext.plugins_s3_url = 's3://www.nextflow.io/plugins'
-ext.plugins_http_url = 'http://www.nextflow.io.s3-website-eu-west-1.amazonaws.com/plugins'
-ext.plugins_index_url = 'https://raw.githubusercontent.com/nextflow-io/plugins/main/plugins.json'
 
 subprojects {
     apply plugin: 'java'
@@ -51,12 +53,8 @@ subprojects {
      * Creates plugin zip and json meta file in plugin `build/libs` directory
      */
     task makeZip(type: Jar) {
-        into('classes') {
-            with jar
-        }
-        into('lib') {
-            from configurations.compile
-        }
+        into('classes') { with jar }
+        into('lib') { from configurations.compile }
         manifest.from file('src/resources/META-INF/MANIFEST.MF')
         archiveExtension = 'zip'
         preserveFileTimestamps = false
@@ -65,12 +63,12 @@ subprojects {
         doLast {
             // create the meta file
             final zip = new File("$buildDir/libs/${project.name}-${project.version}.zip")
-            final json = new File("$buildDir/libs/${project.name}-${project.version}.json")
+            final json = new File("$buildDir/libs/${project.name}-${project.version}-meta.json")
             json.text = """\
               {
                 "version": "${project.version}",
                 "date": "${timestamp}",
-                "url": "$plugins_http_url/${project.name}/${project.name}-${project.version}.zip",
+                "url": "https://github.com/nextflow-io/${project.name}/releases/download/${project.version}/${project.name}-${project.version}.zip",
                 "sha512sum": "${computeSha512(zip)}"
               }
             """.stripIndent()
@@ -87,24 +85,18 @@ subprojects {
         into "$rootProject.buildDir/plugins"
     }
 
-    task uploadPluginZip(type: S3Upload, dependsOn: makeZip) {
-        // the provider mess is needed to lazy evaluate the `project.version` property
-        //   https://docs.gradle.org/current/userguide/lazy_configuration.html#lazy_properties
-        //   https://stackoverflow.com/questions/13198358/how-to-get-project-version-in-custom-gradle-plugin/13198744
-        source = providers.provider { "$buildDir/libs/${project.name}-${project.version}.zip" }
-        target = providers.provider { "$plugins_s3_url/${project.name}/${project.name}-${project.version}.zip" }
-        publicRead = true
+    task uploadPlugin(type: GithubUploader, dependsOn: makeZip) {
+        assets = providers.provider {["$buildDir/libs/${project.name}-${project.version}.zip",
+                                      "$buildDir/libs/${project.name}-${project.version}-meta.json" ]}
+        release = providers.provider { project.version }
+        repo = providers.provider { project.name }
+        owner = 'nextflow-io'
         skipExisting = true
+        userName = 'pditommaso'
+        authToken = System.getenv('GITHUB_TOKEN')
     }
 
-    task uploadPluginMeta(type: S3Upload, dependsOn: makeZip) {
-        source = providers.provider { "$buildDir/libs/${project.name}-${project.version}.json" }
-        target = providers.provider { "$plugins_s3_url/${project.name}/${project.name}-${project.version}.json" }
-        publicRead = true
-        skipExisting = true
-    }
-
-    task upload(dependsOn: [uploadPluginMeta, uploadPluginZip] ) { }
+    task upload(dependsOn: [uploadPlugin] ) { }
 }
 
 task upload(dependsOn: [subprojects.upload]) {
@@ -114,9 +106,10 @@ classes.dependsOn subprojects.copyPluginLibs
 assemble.dependsOn subprojects.copyPluginZip
 
 
-task publishIndex( type: PluginsRepositoryPublisher ) {
-    repositoryUrl = plugins_s3_url
-    indexUrl = plugins_index_url
+task publishIndex( type: GithubRepositoryPublisher ) {
+    indexUrl = 'https://github.com/nextflow-io/plugins/main/plugins.json'
+    repos = allPlugins() - 'nf-alibaba'
+    owner = 'nextflow-io'
     githubUser = 'pditommaso'
     githubEmail = 'paolo.ditommaso@gmail.com'
     githubToken = System.getenv('GITHUB_TOKEN')

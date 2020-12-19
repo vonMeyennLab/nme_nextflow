@@ -155,16 +155,167 @@ class GithubClient {
         return bytes != null ? new String(bytes) : null
     }
 
+    Map getRelease(String version) {
+        def action = "https://api.github.com/repos/$owner/$repo/releases/tags/$version"
+        try {
+            def resp = sendHttpMessage(action, null, 'GET')
+            return resp
+        }
+        catch (Exception e) {
+            return null
+        }
+    }
+
+    Map createRelease(String version) {
+        final action = "https://api.github.com/repos/${owner}/${repo}/releases"
+        final payload = "{\"tag_name\":\"$version\", \"name\": \"Version $version\", \"draft\":false, \"prerelease\":false}"
+        Map resp = sendHttpMessage(action, payload, 'POST')
+        return resp
+    }
+
+    List listReleases() {
+        final action = "https://api.github.com/repos/${owner}/${repo}/releases"
+        return (List) sendHttpMessage(action, null, 'GET')
+    }
+
+    Map latestRelease() {
+        final action = "https://api.github.com/repos/${owner}/${repo}/releases/latest"
+        try {
+            return (Map) sendHttpMessage(action, null, 'GET')
+        }
+        catch (Exception e) {
+            return null
+        }
+    }
+
+    /*
+     * https://docs.github.com/en/free-pro-team@latest/rest/reference/repos#delete-a-release
+     */
+    void deleteRelease(String version) {
+        def rel = getRelease(version)
+        if( !rel )
+            return
+        // delete by id
+        final action = "https://api.github.com/repos/${owner}/${repo}/releases/${rel.id.toLong()}"
+        sendHttpMessage(action, null, 'DELETE')
+    }
+    
+    /*
+     * https://docs.github.com/en/free-pro-team@latest/rest/reference/repos#get-a-release-asset
+     */
+    InputStream getAsset(String assetId) {
+        final action = "https://api.github.com/repos/$owner/$repo/releases/assets/$assetId"
+        final con = getHttpConnection(action)
+
+        // Make header settings
+        con.setRequestMethod('GET')
+        con.setRequestProperty("Content-Type", "application/json")
+        con.setRequestProperty("Authorization","Basic ${getEncodedAuthToken()}")
+        con.setRequestProperty("Accept", "application/octet-stream")
+
+        con.setDoOutput(true)
+
+        return con.getInputStream()
+    }
+
+    InputStream getReleaseAsset(String version, String name) {
+        final rel = getRelease(version)
+        if( !rel )
+            return null
+        def asset = (Map) rel.assets.find{ it.name == name }
+        if( !asset )
+            return null
+
+        return getAsset(asset.id.toLong().toString())
+    }
+
+    void deleteReleaseAsset(String version, String name) {
+        final rel = getRelease(version)
+        if( !rel )
+            return
+
+        def asset = (Map) rel.assets.find{ it.name == name }
+        if( !asset )
+            return 
+
+        deleteAsset(asset.id.toLong().toString())
+    }
+
+    /*
+     * https://docs.github.com/en/free-pro-team@latest/rest/reference/repos#delete-a-release-asset
+     */
+    void deleteAsset(String assetId) {
+        final action = "https://api.github.com/repos/${owner}/${repo}/releases/assets/${assetId}"
+        sendHttpMessage(action, null, 'DELETE')
+    }
+
+    /*
+     * https://docs.github.com/en/free-pro-team@latest/rest/reference/repos#upload-a-release-asset
+     */
+    def uploadReleaseAsset(String releaseId, File file, mimeType) {
+
+        def action = "https://uploads.github.com/repos/${owner}/${repo}/releases/${releaseId}/assets?name=${file.name}"
+
+        def con = getHttpConnection(action)
+        // Make header settings
+        con.setRequestMethod('POST')
+        con.setRequestProperty("Content-Type", mimeType)
+        con.setRequestProperty("Content-Length", file.size().toString())
+        con.setRequestProperty("Authorization","Basic ${getEncodedAuthToken()}")
+
+        con.setDoOutput(true)
+
+        DataOutputStream output = new DataOutputStream(con.getOutputStream())
+        output.write(file.bytes)
+        output.flush()
+        output.close()
+
+        def resp = con.responseCode>= 400
+                ? con.getErrorStream().text
+                : con.getInputStream().text
+
+        return resp
+    }
+
     static void main(String... args) {
+//        def github = new GithubClient(
+//                authToken: System.getenv('GITHUB_TOKEN'),
+//                userName: 'pditommaso',
+//                branch: 'main',
+//                repo: 'plugins' ,
+//                owner: 'nextflow-io',
+//                email: 'paolo.ditommaso@gmail.com' )
+//
+//        github.pushChange('Xyz', 'hello.txt', 'One more try')
+
+        // -- test releases api
         def github = new GithubClient(
                 authToken: System.getenv('GITHUB_TOKEN'),
                 userName: 'pditommaso',
-                branch: 'main',
-                repo: 'plugins' ,
                 owner: 'nextflow-io',
-                email: 'paolo.ditommaso@gmail.com' )
+                repo: 'plugins' )
 
-        github.pushChange('Xyz', 'hello.txt', 'One more try')
+        //println github.getRelease('v20.12.1-edge')
+        //println github.getReleaseAsset('v20.12.0-edge', 'nextflow').text
+//        println ("rel=" + github.createRelease('v1.2.3'))
+        //github.deleteRelease('v1.2.3')
+
+//        def relId = github.createRelease('v1.2.3')
+//        println "rel = $relId"
+
+        //def rel = github.getRelease('v1.2.3')
+
+        def relId = '35486764'
+        def file = new File('/Users/pditommaso/Downloads/qsub_out.txt')
+        assert file.exists()
+        try {
+            def resp = github.uploadReleaseAsset(relId, file, 'application/text')
+            println resp
+        }
+        catch (Exception e) {
+            e.printStackTrace()
+        }
+
     }
 
 }

@@ -1,23 +1,12 @@
 package io.nextflow.gradle.tasks
 
-import com.amazonaws.auth.AWSCredentialsProviderChain
-import com.amazonaws.auth.EC2ContainerCredentialsProviderWrapper
-import com.amazonaws.auth.EnvironmentVariableCredentialsProvider
-import com.amazonaws.auth.SystemPropertiesCredentialsProvider
-import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.regions.Region
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.s3.AmazonS3Client
-import com.amazonaws.services.s3.model.ListObjectsRequest
-import com.amazonaws.services.s3.model.S3ObjectSummary
+
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import groovy.transform.CompileStatic
-import groovy.transform.Memoized
 import io.nextflow.gradle.model.PluginMeta
 import io.nextflow.gradle.model.PluginRelease
-import io.nextflow.gradle.util.BucketTokenizer
 import io.nextflow.gradle.util.GithubClient
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -32,12 +21,9 @@ import org.gradle.api.tasks.TaskAction
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic
-class PluginsRepositoryPublisher extends DefaultTask {
+class GithubRepositoryPublisher extends DefaultTask {
 
-    /**
-     * The source repository URL. It must a S3 bucket URL
-     */
-    @Input String repositoryUrl
+    @Input List<String> repos
 
     /**
      * The target plugins repository index HTTP URL
@@ -71,33 +57,7 @@ class PluginsRepositoryPublisher extends DefaultTask {
 
     @Input @Optional Boolean overwrite
 
-    private String bucket
-    private String prefix
-
-
-    @Memoized
-    private AmazonS3Client getS3Client() {
-        def profileCreds
-        if (profile) {
-            logger.info("Using AWS credentials profile: ${profile}")
-            profileCreds = new ProfileCredentialsProvider(profile)
-        }
-        else {
-            profileCreds = new ProfileCredentialsProvider()
-        }
-        def creds = new AWSCredentialsProviderChain(
-                new EnvironmentVariableCredentialsProvider(),
-                new SystemPropertiesCredentialsProvider(),
-                profileCreds,
-                new EC2ContainerCredentialsProviderWrapper()
-        )
-
-        AmazonS3Client s3Client = new AmazonS3Client(creds)
-        if (region) {
-            s3Client.region = Region.getRegion(Regions.fromName(region))
-        }
-        return s3Client
-    }
+    @Input String owner
 
 
     String mergeIndex(List<PluginMeta> mainIndex, Map<String,List<PluginRelease>> pluginsToPublish) {
@@ -158,50 +118,45 @@ class PluginsRepositoryPublisher extends DefaultTask {
      * @return The map holding the plugin releases for each plugin id
      */
     Map<String,List<PluginRelease>> listPlugins() {
-
-        final gson = new Gson()
-        final result = new HashMap<String,List<PluginRelease>>()
-
-        final req = new ListObjectsRequest()
-                .withBucketName(bucket)
-                .withPrefix(prefix + '/');
-
-        def objects = s3Client.listObjects(req)
-
-        while(true) {
-            List<S3ObjectSummary> summaries = objects.getObjectSummaries();
-            if (summaries.size() < 1)
-                break
-
-            for(int i=0;i<summaries.size();i++){
-                final key = summaries.get(i).getKey()
-                if( key.endsWith('.json') ) {
-                    def items = key.tokenize('/')
-                    if( items.size()==3 ) {
-                        logger.quiet("Found plugin s3://$bucket/$key")
-                        final pluginId = items[1]
-                        final releases = result.getOrDefault(pluginId, [])
-                        final rel = gson.fromJson(s3Client.getObject(bucket, key).getObjectContent().text, PluginRelease)
-                        releases << rel
-                        result.put(pluginId, releases)
-                    }
-                }
-            }
-
-            objects = s3Client.listNextBatchOfObjects(objects)
+        Map<String,List<PluginRelease>> result = [:]
+        for( String it : repos ) {
+            final rel = getReleases(it)
+            if( rel ) result[it] = [rel]
         }
-
         return result
     }
 
+    PluginRelease getReleases(String repo) {
+
+        final client = new GithubClient(
+                authToken: githubToken,
+                userName: githubUser,
+                owner: owner,
+                repo: repo)
+
+        // https://docs.github.com/en/free-pro-team@latest/rest/reference/repos#get-the-latest-release
+        final resp = client.latestRelease()
+        if( !resp ) {
+            logger.quiet("WARN: No release found for repo $owner/$repo")
+            return null
+        }
+
+        final version = resp.tag_name as String
+        if( !version ) {
+            logger.quiet("WARN: No version found for repo $owner/$repo")
+            return
+        }
+
+        logger.quiet("Merging $owner/$repo@$version")
+        final metaFile = "${repo}-${version}-meta.json"
+        final json = client.getReleaseAsset(version, metaFile)?.text
+        if( !json )
+            throw new GradleException("Can't load plugin release metafile $metaFile")
+        return new Gson().fromJson(json, PluginRelease)
+    }
 
     @TaskAction
     def apply() {
-        final urlTokens = BucketTokenizer.from(repositoryUrl)
-        if( urlTokens.scheme != 's3' )
-            throw new GradleException("Invalid publishUrl: $repositoryUrl -- It must start with s3:// prefix")
-        this.bucket = urlTokens.bucket
-        this.prefix = urlTokens.key
 
         // parse indexUrl 
         final gitUrl = new URL(indexUrl)
@@ -221,7 +176,7 @@ class PluginsRepositoryPublisher extends DefaultTask {
         github.email = githubEmail
 
         // list plugins in the nextflow s3 releases
-        logger.quiet("Fetching plugins from $repositoryUrl")
+        logger.quiet("Fetching plugins $repos")
         final pluginsToPublish = listPlugins()
 
         // fetch the plugins public index
