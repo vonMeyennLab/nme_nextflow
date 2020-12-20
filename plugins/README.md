@@ -43,10 +43,11 @@ Plugin-Version: 0.0.0
 * `NXF_PLUGINS_DIR`: the path where the plugins archives are stored/loaded. Default is `$NXF_HOME/plugins` for 
   production mode and `$PWD/plugins` for dev mode. 
 * `NXF_PLUGINS_DEFAULT`: Whenever use the default plugins when no plugin is specified in the config file.   
+* `NXF_PLUGINS_DEV: Comma separate separated list of development plugins root directories
 
 ## Development environment
 
-When running in development the plugin system uses the `GroovyDevPluginClasspath` to load plugins classes 
+When running in development the plugin system uses the `DevPluginClasspath` to load plugins classes 
 from each plugin project build path e.g. `$PWD/plugins/nf-amazon/build/classes` and 
 `$PWD/plugins/nf-amazon/build/target/libs` (for deps libraries).    
 
@@ -61,11 +62,11 @@ The repository index has the following structure:
 ```
 [
   {
-    "id": "nf-somthing",
+    "id": "nf-amazon",
     "releases": [
       {
-        "version": "0.1.0",
-        "url": "http://www.nextflow.io.s3-website-eu-west-1.amazonaws.com/plugins/nf-something/nf-something-0.1.0.zip",
+        "version": "0.2.0",
+        "url": "https://github.com/nextflow-io/nf-amazon/releases/download/0.2.0/nf-amazon-0.2.0.zip",
         "date": "2020-10-12T10:05:44.28+02:00",
         "sha512sum": "9e9e33695c1a7c051271..."
       }
@@ -73,7 +74,40 @@ The repository index has the following structure:
   },
   :
 ]
+```     
+
+
+## Plugins 
+
+A plugin is a ZIP file holding either the plugin classes and the required dependencies JAR file.  
+
+Nextflow core plugins are stored in the corresponding GitHub project release page. However, this is not a
+strict requirement, it has been chosen to simplify the build deployment process and provide a more consistent 
+download experience keeping all of them with the GitHub [nextflow-io](https://github.com/nextflow-io) organization.   
+
+### The installation process 
+
+Plugins need to be declared in the `nextflow.config` file using the plugins scope, eg. 
+
 ```
+plugins {
+    id 'nf-amazon@0.2.0'
+}
+```     
+
+If the plugins is not locally available Nextflow check in the repository index for the download URL, 
+download the ZIP in a temporary file, unzip and store the final plugin in the directory specified by the 
+variable `NXF_PLUGINS_DIR` (default: `$NXF_HOME/plugins`). 
+
+Finally, since each Nextflow run can have a different set of plugins (and version) requirement, each Nextflow 
+instance keep local plugins directory root in directory `$PWD/.nextflow/plr/<unique id>` symlinking the exact list 
+of plugins directory required for the current Nextflow instance.
+
+If no plugins are specified in the nextflow.config file, Nextflow default plugins are automatically added. 
+The default plugins list is defined in the Nextflow resources file included in the distribution runtime 
+`./modules/nextflow/src/main/resources/META-INF/plugins-info.txt`. 
+
+To disable the use of defualt plugins set the following variable `NXF_PLUGINS_DEFAULT=false`.
 
 ## Gradle Tasks 
 
@@ -98,27 +132,18 @@ This is only needed when launching the plugin in *development* mode.
 
 Copies the plugin zip file to the root project build dir ie. `$PWD/build/plugins/`.
 
-### uploadPluginZip
+### uploadPlugin
 
-Uploads the plugin zip file to the S3 repository. Options: 
+Uploads the plugin ZIP and meta (JSON) files to the corresponding GitHub repository. Options: 
 
-* `source`: the file local path. 
-* `target`: the file remote path. 
-* `publicAcl`: make the file public accessible (default: `true`).
+* `release`: the plugin version e.g. `1.0.1`
+* `repo`: the GitHub repository name e.g. `nf-amazon`
+* `owner`: the GitHub owning organization e.g. `nextflow-io`
+* `skipExisting`: do not upload a file already existing (only if the checksum is the same, default: `true`). 
 * `dryRun`: execute the tasks without uploading file (default: `false`).
 * `overwrite`: prevent to overwrite a remote file already existing (default: `false`).
-* `skipExisting`: do not upload a file already existing (only if the checksum is the same, default: `true`). 
-
-### uploadPluginMeta
-
-Uploads the plugin JSON meta file to the S3 repository. Options: 
-
-* `source`: the file local path. 
-* `target`: the file remote path. 
-* `publicAcl`: make the file public accessible (default: `true`).
-* `dryRun`: execute the tasks without uploading file (default: `false`).
-* `overwrite`: prevent to overwrite a remote file already existing (default: `false`).
-* `skipExisting`: do not upload a file already existing (only if the checksum is the same, default: `true`). 
+* `userName`: the user name for authenticate GitHub API requests
+* `authToken`: the personal token to authenticate GitHub API requests  
 
 ### upload
 

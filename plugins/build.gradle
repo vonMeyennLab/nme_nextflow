@@ -5,6 +5,11 @@ import org.apache.commons.codec.digest.DigestUtils
 apply plugin: 'java'
 apply plugin: "nf-gradle-plugin"
 
+ext.github_organization = 'nextflow-io'
+ext.github_username = project.findProperty('github_username') ?: 'pditommaso'
+ext.github_access_token = project.findProperty('github_access_token') ?: System.getenv('GITHUB_TOKEN')
+ext.github_commit_email = project.findProperty('github_commit_email') ?: 'paolo.ditommaso@gmail.com'
+
 jar.enabled = false
 
 String computeSha512(File file) {
@@ -90,10 +95,10 @@ subprojects {
                                       "$buildDir/libs/${project.name}-${project.version}-meta.json" ]}
         release = providers.provider { project.version }
         repo = providers.provider { project.name }
-        owner = 'nextflow-io'
+        owner = github_organization
+        userName = github_username
+        authToken = github_access_token
         skipExisting = true
-        userName = 'pditommaso'
-        authToken = System.getenv('GITHUB_TOKEN')
     }
 
     task upload(dependsOn: [uploadPlugin] ) { }
@@ -108,8 +113,8 @@ assemble.dependsOn subprojects.copyPluginZip
 task publishIndex( type: GithubRepositoryPublisher ) {
     indexUrl = 'https://github.com/nextflow-io/plugins/main/plugins.json'
     repos = allPlugins() - 'nf-alibaba'
-    owner = 'nextflow-io'
-    githubUser = 'pditommaso'
-    githubEmail = 'paolo.ditommaso@gmail.com'
-    githubToken = System.getenv('GITHUB_TOKEN')
+    owner = github_organization
+    githubUser = github_username
+    githubEmail = github_commit_email
+    githubToken = github_access_token
 }
