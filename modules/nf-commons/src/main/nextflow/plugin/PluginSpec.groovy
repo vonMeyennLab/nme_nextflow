@@ -21,7 +21,6 @@ import com.google.common.hash.Hasher
 import groovy.transform.Canonical
 import nextflow.util.CacheFunnel
 import nextflow.util.CacheHelper
-
 /**
  * Model a plugin Id and version
  *
@@ -57,5 +56,9 @@ class PluginSpec implements CacheFunnel {
         hasher
             .putUnencodedChars(id)
             .putUnencodedChars(version)
+    }
+
+    String toString() {
+        "${id}@${version?:'latest'}"
     }
 }

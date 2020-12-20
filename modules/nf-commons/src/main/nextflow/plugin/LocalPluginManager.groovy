@@ -17,10 +17,12 @@
 
 package nextflow.plugin
 
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Path
 
 import groovy.transform.CompileStatic
+import groovy.util.logging.Slf4j
 import org.pf4j.DefaultPluginLoader
 import org.pf4j.DefaultPluginManager
 import org.pf4j.ManifestPluginDescriptorFinder
@@ -33,6 +35,7 @@ import org.pf4j.PluginRepository
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Slf4j
 @CompileStatic
 class LocalPluginManager extends DefaultPluginManager {
 
@@ -72,7 +75,19 @@ class LocalPluginManager extends DefaultPluginManager {
 
         // create a symlink relative to the current root
         final symlink = getPluginsRoot().resolve(pluginPath.getFileName())
-        Files.createSymbolicLink(symlink, pluginPath)
+        createLink(symlink, pluginPath)
         super.loadPlugin(symlink)
+    }
+
+    private void createLink(Path symlink, Path pluginPath) {
+        try {
+            log.trace "Creating local plugins root link: $symlink → $pluginPath"
+            Files.createSymbolicLink(symlink, pluginPath)
+        }
+        catch (FileAlreadyExistsException e) {
+            log.debug "Deleting existing local plugins root link: $symlink"
+            Files.delete(symlink)
+            Files.createSymbolicLink(symlink, pluginPath)
+        }
     }
 }

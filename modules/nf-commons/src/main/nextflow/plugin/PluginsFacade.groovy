@@ -136,14 +136,17 @@ class PluginsFacade implements PluginStateListener {
     void start(PluginSpec plugin) {
         final result = manager.getPlugin(plugin.id)
         if( !result ) {
+            log.debug "Installing plugin $plugin"
             // install & start the plugin
             updater.installPlugin(plugin.id, plugin.version)
         }
         else if( result.descriptor.version != plugin.version ) {
+            log.debug "Updating plugin $plugin"
             // update & start the plugin
             updater.updatePlugin(plugin.id, plugin.version)
         }
         else {
+            log.debug "Starting plugin $plugin"
             manager.startPlugin(plugin.id)
         }
     }
@@ -156,6 +159,12 @@ class PluginsFacade implements PluginStateListener {
 
     protected List<PluginSpec> pluginsRequirement(Map config) {
         def specs = parseConf(config)
+        if( env.get('NXF_PACK')=='all' ) {
+            // custom plugins are not allowed for nextflow self-contained package
+            if( specs )
+                log.warn "Nextflow self-contained distribution only allows default plugins -- User config plugins will be ignored: ${specs.join(',')}"
+            return Collections.emptyList()
+        }
         if( specs ) {
             log.debug "Plugins declared=$specs"
         }

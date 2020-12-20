@@ -389,6 +389,7 @@ export CAPSULE_CACHE_DIR
 export NXF_PLUGINS_DIR
 export NXF_PLUGINS_MODE
 export NXF_PLUGINS_DEFAULT
+export NXF_PACK
 
 # lookup the a `md5` command
 if hash md5sum 2>/dev/null; then MD5=md5sum;
