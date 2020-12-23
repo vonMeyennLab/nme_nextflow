@@ -49,8 +49,8 @@ class PluginsFacade implements PluginStateListener {
     private DefaultPlugins defaultPlugins
 
     PluginsFacade() {
-        mode = env.get('NXF_PLUGINS_MODE') ?: 'dev'
-        root = Paths.get(env.get('NXF_PLUGINS_DIR') ?: 'plugins')
+        mode = getPluginsMode()
+        root = getPluginsDir()
         System.setProperty('pf4j.mode', mode)
         defaultPlugins = new DefaultPlugins()
     }
@@ -60,6 +60,53 @@ class PluginsFacade implements PluginStateListener {
         this.root = root
         System.setProperty('pf4j.mode', mode)
         defaultPlugins = new DefaultPlugins()
+    }
+
+    protected Path getPluginsDir() {
+        final dir = env.get('NXF_PLUGINS_DIR')
+        if( dir ) {
+            log.trace "Detected NXF_PLUGINS_DIR=$dir"
+            return Paths.get(dir)
+        }
+        else if( env.containsKey('NXF_HOME') ) {
+            log.trace "Detected NXF_HOME - Using ${env.NXF_HOME}/plugins"
+            return Paths.get(env.NXF_HOME, 'plugins')
+        }
+        else {
+            log.trace "Using local plugins directory"
+            return Paths.get('plugins')
+        }
+    }
+
+    protected String getPluginsMode() {
+        final mode = env.get('NXF_PLUGINS_MODE')
+        if( mode ) {
+            log.trace "Detected NXF_PLUGINS_MODE=$mode"
+            return mode
+        }
+        else if( env.containsKey('NXF_HOME') ) {
+            log.trace "Detected NXF_HOME - Using plugins mode=prod"
+            return 'prod'
+        }
+        else {
+            log.trace "Using dev plugins mode"
+            return 'dev'
+        }
+    }
+
+    protected boolean getPluginsDefault() {
+        if( env.containsKey('NXF_PLUGINS_DEFAULT')) {
+            log.trace "Detected NXF_PLUGINS_DEFAULT=$env.NXF_PLUGINS_DEFAULT"
+            return env.NXF_PLUGINS_DEFAULT=='true'
+        }
+        else if( env.containsKey('NXF_HOME') ) {
+            log.trace "Detected NXF_HOME - Using plugins defaults"
+            return true
+        }
+        else {
+            log.trace "Disabling plugins defaults"
+            return false
+        }
     }
 
     protected void init(Path root, List<PluginSpec> specs) {
@@ -104,7 +151,7 @@ class PluginsFacade implements PluginStateListener {
         if( manager )
             throw new IllegalArgumentException("Plugin system was already setup")
         else {
-            log.debug "Setting up plugin manager > NXF_PLUGINS_MODE=${mode}; NXF_PLUGINS_DIR=$root"
+            log.debug "Setting up plugin manager > mode=${mode}; plugins-dir=$root"
             // make sure plugins dir exists
             if( !FilesEx.mkdirs(root) )
                 throw new IOException("Unable to create plugins dir: $root")
@@ -168,7 +215,7 @@ class PluginsFacade implements PluginStateListener {
         if( specs ) {
             log.debug "Plugins declared=$specs"
         }
-        else if( env.get('NXF_PLUGINS_DEFAULT')=='true' ){
+        else if( getPluginsDefault() ){
             specs = defaultPluginsConf(config)
             log.debug "Plugins default=$specs"
         }

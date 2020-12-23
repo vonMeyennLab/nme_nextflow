@@ -1,8 +1,10 @@
 package nextflow.plugin
 
 import java.nio.file.Files
+import java.nio.file.Paths
 
 import spock.lang.Specification
+import spock.lang.Unroll
 
 /**
  *
@@ -113,5 +115,45 @@ class PluginsFacadeTest extends Specification {
         !plugins.find { it.id == 'nf-ignite' }
         !plugins.find { it.id == 'nf-google' }
 
+    }
+
+    @Unroll
+    def 'should validate plugins mode' () {
+        given:
+        def facade = new PluginsFacade(env: ENV)
+        expect:
+        facade.getPluginsMode() == EXPECTED
+        where:
+        ENV                             | EXPECTED
+        [NXF_PLUGINS_MODE: 'foo']       | 'foo'
+        [NXF_HOME: 'something']         | 'prod'
+        [:]                             | 'dev'
+    }
+
+    @Unroll
+    def 'should validate plugins default' () {
+        given:
+        def facade = new PluginsFacade(env: ENV)
+        expect:
+        facade.getPluginsDefault() == EXPECTED
+        where:
+        ENV                             | EXPECTED
+        [NXF_PLUGINS_DEFAULT: 'true']   | true
+        [NXF_PLUGINS_DEFAULT: 'false']  | false
+        [NXF_HOME: 'something']         | true
+        [:]                             | false
+    }
+
+    @Unroll
+    def 'should validate plugins dir' () {
+        given:
+        def facade = new PluginsFacade(env: ENV)
+        expect:
+        facade.getPluginsDir() == EXPECTED
+        where:
+        ENV                                 | EXPECTED
+        [NXF_PLUGINS_DIR: '/some/dir']      | Paths.get('/some/dir')
+        [NXF_HOME: '/my/home']              | Paths.get('/my/home/plugins')
+        [:]                                 | Paths.get('plugins')
     }
 }
