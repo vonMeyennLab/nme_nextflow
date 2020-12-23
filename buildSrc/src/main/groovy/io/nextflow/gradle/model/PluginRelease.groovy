@@ -5,7 +5,7 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 
 /**
- * Model a plugin result meta-info
+ * Model a plugin release meta-info
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */

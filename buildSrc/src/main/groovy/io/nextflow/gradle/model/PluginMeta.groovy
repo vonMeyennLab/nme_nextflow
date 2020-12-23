@@ -5,6 +5,7 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 
 /**
+ * Model a Nextflow plugin meta-info
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */

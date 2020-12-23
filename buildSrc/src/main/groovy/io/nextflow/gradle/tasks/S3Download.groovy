@@ -15,6 +15,8 @@ import org.gradle.api.tasks.TaskAction
 /**
  * Download files from a S3 bucket
  *
+ * Based on https://github.com/mgk/s3-plugin/blob/master/src/main/groovy/com/github/mgk/gradle/S3Plugin.groovy
+ *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic

@@ -7,6 +7,7 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 
 /**
+ * S3 bucket tokenizer
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */

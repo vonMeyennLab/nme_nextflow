@@ -12,6 +12,9 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.Internal
 
 /**
+ * S3 common operations
+ *
+ * Based on https://github.com/mgk/s3-plugin/blob/master/src/main/groovy/com/github/mgk/gradle/S3Plugin.groovy
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */

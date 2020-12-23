@@ -4,9 +4,13 @@ import com.google.gson.Gson
 import groovy.util.logging.Slf4j
 
 /**
+ * Simple Github HTTP client
+ *
  * Commit & push a file change to a Github repo
  *
  * https://stackoverflow.com/a/63461333/395921
+ *
+ * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
 class GithubClient {

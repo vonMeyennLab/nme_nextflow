@@ -32,6 +32,8 @@ import org.gradle.api.tasks.TaskAction
 /**
  * Upload project artifact to the corresponding Github repository releases page
  *
+ * Based on https://github.com/mgk/s3-plugin/blob/master/src/main/groovy/com/github/mgk/gradle/S3Plugin.groovy
+ *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic

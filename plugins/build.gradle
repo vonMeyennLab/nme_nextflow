@@ -3,7 +3,7 @@ import io.nextflow.gradle.tasks.GithubRepositoryPublisher
 import org.apache.commons.codec.digest.DigestUtils
 
 apply plugin: 'java'
-apply plugin: "nf-gradle-plugin"
+apply plugin: "io.nextflow.nf-build-plugin"
 
 ext.github_organization = 'nextflow-io'
 ext.github_username = project.findProperty('github_username') ?: 'pditommaso'
@@ -45,7 +45,7 @@ def timestamp = now()
 subprojects {
     apply plugin: 'java'
     apply plugin: 'groovy'
-    apply plugin: 'nf-gradle-plugin'
+    apply plugin: 'io.nextflow.nf-build-plugin'
     
     repositories {
         mavenLocal()
