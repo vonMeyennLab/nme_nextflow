@@ -50,6 +50,7 @@ import groovyx.gpars.group.PGroup
 import nextflow.NF
 import nextflow.Nextflow
 import nextflow.Session
+import nextflow.ast.NextflowDSLImpl
 import nextflow.ast.TaskCmdXform
 import nextflow.ast.TaskTemplateVarsXform
 import nextflow.cloud.CloudSpotTerminationException
@@ -75,6 +76,7 @@ import nextflow.script.BaseScript
 import nextflow.script.BodyDef
 import nextflow.script.ProcessConfig
 import nextflow.script.ScriptType
+import nextflow.script.TaskClosure
 import nextflow.script.params.BasicMode
 import nextflow.script.params.EachInParam
 import nextflow.script.params.EnvInParam
@@ -570,8 +572,14 @@ class TaskProcessor {
         if( !checkWhenGuard(task) )
             return
 
-        // -- resolve the task command script
-        task.resolve(taskBody)
+        TaskClosure block
+        if( session.stubRun && (block=task.config.getStubBlock()) ) {
+            task.resolve(block)
+        }
+        else {
+            // -- resolve the task command script
+            task.resolve(taskBody)
+        }
 
         // -- verify if exists a stored result for this case,
         //    if true skip the execution and return the stored data
@@ -1385,7 +1393,7 @@ class TaskProcessor {
 
         // fetch the output value
         final val = collectOutEnvMap(workDir).get(param.name)
-        if( val == null )
+        if( val == null && !param.optional )
             throw new MissingValueException("Missing environment variable: $param.name")
         // set into the output set
         task.setOutput(param,val)
@@ -1594,14 +1602,14 @@ class TaskProcessor {
 
 
         // pre-pend the 'bin' folder to the task environment
-        if( session.binDir ) {
+        if( executor.binDir ) {
             if( result.containsKey('PATH') ) {
                 // note: do not escape potential blanks in the bin path because the PATH
                 // variable is enclosed in `"` when in rendered in the launcher script -- see #630
-                result['PATH'] =  "${session.binDir}:${result['PATH']}".toString()
+                result['PATH'] =  "${executor.binDir}:${result['PATH']}".toString()
             }
             else {
-                result['PATH'] = "${session.binDir}:\$PATH".toString()
+                result['PATH'] = "${executor.binDir}:\$PATH".toString()
             }
         }
 
@@ -1957,6 +1965,10 @@ class TaskProcessor {
             keys.add(conda)
         }
 
+        if( session.stubRun ) {
+            keys.add('stub-run')
+        }
+
         final mode = config.getHashMode()
         final hash = computeHash(keys, mode)
         if( session.dumpHashes ) {
@@ -2031,7 +2043,7 @@ class TaskProcessor {
     protected boolean checkWhenGuard(TaskRun task) {
 
         try {
-            def pass = task.config.getGuard('when')
+            def pass = task.config.getGuard(NextflowDSLImpl.PROCESS_WHEN)
             if( pass ) {
                 return true
             }

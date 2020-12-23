@@ -45,8 +45,8 @@ dependencies {
     compile ('com.amazonaws:aws-java-sdk-iam:1.11.542')
     compile ('com.amazonaws:aws-java-sdk-ecs:1.11.542')
 
-    testCompile(testFixtures(project(":nextflow")))
+    testImplementation(testFixtures(project(":nextflow")))
     testImplementation project(':nextflow')
-    testImplementation "org.codehaus.groovy:groovy:3.0.5"
-    testImplementation "org.codehaus.groovy:groovy-nio:3.0.5"
+    testImplementation "org.codehaus.groovy:groovy:3.0.7"
+    testImplementation "org.codehaus.groovy:groovy-nio:3.0.7"
 }

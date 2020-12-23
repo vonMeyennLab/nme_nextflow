@@ -25,9 +25,9 @@ dependencies {
     compile ('org.apache.ignite:ignite-core:2.4.0')
     compile ('org.apache.ignite:ignite-slf4j:2.4.0') { transitive = false }
 
-    testImplementation project(':nextflow')
-    testImplementation "org.codehaus.groovy:groovy:3.0.5"
-    testImplementation "org.codehaus.groovy:groovy-nio:3.0.5"
+    testImplementation(testFixtures(project(":nextflow")))
+    testImplementation "org.codehaus.groovy:groovy:3.0.7"
+    testImplementation "org.codehaus.groovy:groovy-nio:3.0.7"
 
     /* testCompile inherited from top gradle build file */
     testCompile ('org.apache.ignite:ignite-spring:2.4.0') {

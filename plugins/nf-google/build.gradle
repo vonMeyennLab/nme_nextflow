@@ -41,9 +41,9 @@ dependencies {
     compile 'com.google.cloud:google-cloud-nio:0.120.0-alpha'
     compile 'com.google.auth:google-auth-library-oauth2-http:0.18.0'
 
-    testImplementation project(':nextflow')
-    testImplementation "org.codehaus.groovy:groovy:3.0.5"
-    testImplementation "org.codehaus.groovy:groovy-nio:3.0.5"
+    testImplementation(testFixtures(project(":nextflow")))
+    testImplementation "org.codehaus.groovy:groovy:3.0.7"
+    testImplementation "org.codehaus.groovy:groovy-nio:3.0.7"
 }
 
 test {

@@ -16,6 +16,7 @@
  */
 
 package nextflow.cli
+
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.regex.Pattern
@@ -26,6 +27,7 @@ import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
+import groovy.transform.Memoized
 import groovy.util.logging.Slf4j
 import groovyx.gpars.GParsConfig
 import nextflow.Const
@@ -161,6 +163,9 @@ class CmdRun extends CmdBase implements HubOptions {
     @Parameter(names = ['-with-timeline'], description = 'Create processes execution timeline file')
     String withTimeline
 
+    @Parameter(names = '-with-charliecloud', description = 'Enable process execution in a Charliecloud container runtime')
+    def withCharliecloud
+
     @Parameter(names = '-with-singularity', description = 'Enable process execution in a Singularity container')
     def withSingularity
 
@@ -216,6 +221,12 @@ class CmdRun extends CmdBase implements HubOptions {
 
     @Parameter(names=['-dsl2'], description = 'Execute the workflow using DSL2 syntax')
     boolean dsl2
+
+    @Parameter(names=['-main-script'], description = 'The script file to be executed when launching a project directory or repository' )
+    String mainScript
+
+    @Parameter(names=['-stub-run','-stub'], description = 'Execute the workflow replacing process scripts with command stubs')
+    boolean stubRun
 
     @Override
     String getName() { NAME }
@@ -323,7 +334,7 @@ class CmdRun extends CmdBase implements HubOptions {
          */
         def script = new File(pipelineName)
         if( script.isDirectory()  ) {
-            script = new AssetManager().setLocalPath(script).getMainScriptFile()
+            script = mainScript ? new File(mainScript) : new AssetManager().setLocalPath(script).getMainScriptFile()
         }
 
         if( script.exists() ) {
@@ -354,7 +365,7 @@ class CmdRun extends CmdBase implements HubOptions {
         try {
             manager.checkout(revision)
             manager.updateModules()
-            def scriptFile = manager.getScriptFile()
+            final scriptFile = manager.getScriptFile(mainScript)
             log.info "Launching `$repo` [$runName] - revision: ${scriptFile.revisionInfo}"
             if( checkForUpdate && !offline )
                 manager.checkRemoteStatus(scriptFile.revisionInfo)
@@ -385,6 +396,7 @@ class CmdRun extends CmdBase implements HubOptions {
         return result
     }
 
+    @Memoized  // <-- avoid parse multiple times the same file and params
     Map getParsedParams() {
 
         final result = [:]
@@ -398,16 +410,47 @@ class CmdRun extends CmdBase implements HubOptions {
                 readYamlFile(path, result)
         }
 
-        // read the params file if any
-
         // set the CLI params
-        params?.each { key, value ->
-            result.put( key, parseParam(value) )
+        if( !params )
+            return result
+
+        for( Map.Entry<String,String> entry : params ) {
+            addParam( result, entry.key, entry.value )
         }
         return result
     }
 
-    static protected parseParam( String str ) {
+
+    static final private Pattern DOT_ESCAPED = ~/\\\./
+    static final private Pattern DOT_NOT_ESCAPED = ~/(?<!\\)\./
+
+    static protected void addParam(Map params, String key, String value, List path=[], String fullKey=null) {
+        if( !fullKey )
+            fullKey = key
+        final m = DOT_NOT_ESCAPED.matcher(key)
+        if( m.find() ) {
+            final p = m.start()
+            final root = key.substring(0, p)
+            if( !root ) throw new AbortOperationException("Invalida parameter name: $fullKey")
+            path.add(root)
+            def nested = params.get(root)
+            if( nested == null ) {
+                nested = new LinkedHashMap<>()
+                params.put(root, nested)
+            }
+            else if( nested !instanceof Map ) {
+                log.warn "Command line parameter --${path.join('.')} is overwritten by --${fullKey}"
+                nested = new LinkedHashMap<>()
+                params.put(root, nested)
+            }
+            addParam((Map)nested, key.substring(p+1), value, path, fullKey)
+        }
+        else {
+            params.put(key.replaceAll(DOT_ESCAPED,'.'), parseParamValue(value))
+        }
+    }
+
+    static protected parseParamValue(String str ) {
 
         if ( str == null ) return null
 

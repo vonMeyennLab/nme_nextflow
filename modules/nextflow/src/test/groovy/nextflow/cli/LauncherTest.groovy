@@ -220,6 +220,10 @@ class LauncherTest extends Specification {
         launcher.normalizeArgs('run','-with-singularity', '-x') == ['run', '-with-singularity','-', '-x']
         launcher.normalizeArgs('run','-with-singularity', 'busybox') == ['run', '-with-singularity','busybox']
 
+        launcher.normalizeArgs('run','-with-charliecloud') == ['run', '-with-charliecloud','-']
+        launcher.normalizeArgs('run','-with-charliecloud', '-x') == ['run', '-with-charliecloud','-', '-x']
+        launcher.normalizeArgs('run','-with-charliecloud', 'busybox') == ['run', '-with-charliecloud','busybox']
+
         launcher.normalizeArgs('run','-dump-channels') == ['run', '-dump-channels','*']
         launcher.normalizeArgs('run','-dump-channels', '-x') == ['run', '-dump-channels','*', '-x']
         launcher.normalizeArgs('run','-dump-channels', 'foo,bar') == ['run', '-dump-channels','foo,bar']
@@ -249,6 +253,11 @@ class LauncherTest extends Specification {
         launcher.normalizeArgs('run','-ansi-log', 'false', '-x') == ['run', '-ansi-log','false', '-x']
 
         launcher.normalizeArgs('run','-dsl2', '-x') == ['run', '-dsl2','true', '-x']
+
+        launcher.normalizeArgs('run','-stub', '-x') == ['run', '-stub','true', '-x']
+        launcher.normalizeArgs('run','-stub-run', '-x') == ['run', '-stub-run','true', '-x']
+        launcher.normalizeArgs('run','-stub-run', 'true', '-x') == ['run', '-stub-run', 'true', '-x']
+        launcher.normalizeArgs('run','-stub-run', 'false', '-x') == ['run', '-stub-run', 'false', '-x']
 
         launcher.normalizeArgs( script.toAbsolutePath().toString(), '--x=1' ) == ['run', script.toAbsolutePath().toString(), '--x=1']
 

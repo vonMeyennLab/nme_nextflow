@@ -322,7 +322,7 @@ class ConfigBuilder {
         final slurper = new ConfigParser().setRenderClosureAsString(showClosures)
         ConfigObject result = new ConfigObject()
 
-        if( cmdRun?.params )
+        if( cmdRun && (cmdRun.params || cmdRun.paramsFile) )
             slurper.setParams(cmdRun.parsedParams)
 
         // add the user specified environment to the session env
@@ -513,6 +513,9 @@ class ConfigBuilder {
         if( cmdRun.runName )
             config.runName = cmdRun.runName
 
+        if( cmdRun.stubRun )
+            config.stubRun = cmdRun.stubRun
+
         // -- sets the working directory
         if( cmdRun.workDir )
             config.workDir = cmdRun.workDir
@@ -660,6 +663,10 @@ class ConfigBuilder {
 
         if( cmdRun.withSingularity ) {
             configContainer(config, 'singularity', cmdRun.withSingularity)
+        }
+
+        if( cmdRun.withCharliecloud ) {
+            configContainer(config, 'charliecloud', cmdRun.withCharliecloud)
         }
     }
 

@@ -271,7 +271,7 @@ class SchedulerAgent implements Closeable {
         int processPendingTasks0( Resources avail ) {
 
             // -- find candidate tasks to be executed
-            def tasks = pendingTasks
+            List<IgBaseTask> tasks = pendingTasks
                     .query(new ScanQuery<TaskId,IgBaseTask>(new MatchingResources(avail)))
                     .getAll()
                     .collect { it -> it.value }

@@ -45,7 +45,7 @@ dependencies {
     compile 'com.google.code.gson:gson:2.8.1'
     compile 'joda-time:joda-time:2.9.9'
 
-    testImplementation project(':nextflow')
-    testImplementation "org.codehaus.groovy:groovy:3.0.5"
-    testImplementation "org.codehaus.groovy:groovy-nio:3.0.5"
+    testImplementation(testFixtures(project(":nextflow")))
+    testImplementation "org.codehaus.groovy:groovy:3.0.7"
+    testImplementation "org.codehaus.groovy:groovy-nio:3.0.7"
 }
