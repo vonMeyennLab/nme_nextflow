@@ -55,4 +55,8 @@ class Plugins {
         final allExtensions = INSTANCE.getExtensions(type)
         return allExtensions ? allExtensions.first() : null
     }
+
+    static void pull(List<String> ids) {
+        INSTANCE.pullPlugins(ids)
+    }
 }

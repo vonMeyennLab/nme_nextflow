@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
 Plugin-Class: nextflow.ga4gh.Ga4ghPlugin
 Plugin-Id: nf-ga4gh
-Plugin-Version: 0.2.0
+Plugin-Version: 0.3.0
 Plugin-Provider: Seqera Labs

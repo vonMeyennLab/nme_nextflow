@@ -17,28 +17,28 @@
 
 package nextflow.plugin
 
+import groovy.transform.CompileStatic
 
-import org.pf4j.PluginManager
-import org.pf4j.update.UpdateManager
 /**
  * Updater disabling plugin installation and update when
  * running the plugin manager in dev mode
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class DevPluginUpdater extends UpdateManager {
+@CompileStatic
+class DevPluginUpdater extends PluginUpdater {
 
-    DevPluginUpdater(PluginManager pluginManager) {
+    DevPluginUpdater(CustomPluginManager pluginManager) {
         super(pluginManager)
     }
 
     @Override
     boolean installPlugin(String id, String version) {
-        throw new UnsupportedOperationException("Install is not supported on dev mode - Missing plugin $id $version")
+        throw new UnsupportedOperationException("Install is not supported on dev mode - Missing plugin $id ${version?:''}")
     }
 
     @Override
     boolean updatePlugin(String id, String version) {
-        throw new UnsupportedOperationException("Update is not supported on dev mode - Missing plugin $id $version")
+        throw new UnsupportedOperationException("Update is not supported on dev mode - Missing plugin $id ${version?:''}")
     }
 }

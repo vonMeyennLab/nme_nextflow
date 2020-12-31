@@ -8,8 +8,10 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+import org.pf4j.DefaultVersionManager
 import org.pf4j.Plugin
 import org.pf4j.PluginWrapper
+import org.pf4j.update.PluginInfo
 import spock.lang.Specification
 /**
  *
@@ -249,4 +251,43 @@ class PluginUpdaterTest extends Specification {
         return zipFilePath
     }
 
+    def 'should find matching plugin' () {
+        given:
+        def r1 = new PluginInfo.PluginRelease(version: '1.4.0', url: 'http://xyz')
+        def r2 = new PluginInfo.PluginRelease(version: '1.5.0', url: 'http://xyz')
+        def r3 = new PluginInfo.PluginRelease(version: '1.5.1', url: 'http://xyz')
+        def r4 = new PluginInfo.PluginRelease(version: '2.0.1', url: 'http://xyz')
+        def PLUGINS = [
+                'nf-foo': new PluginInfo(id:'nf-foo', releases: [r1, r2, r3, r4]),
+                'nf-bar': new PluginInfo(id:'nf-bar', releases: [])
+        ]
+        def manager = Mock(CustomPluginManager)
+        PluginUpdater updater = Spy(PluginUpdater, constructorArgs: [manager])
+
+
+        when:
+        def ret = updater.findReleaseMatchingCriteria('nf-foo', '1.5.0')
+        then:
+        manager.getVersionManager() >> new DefaultVersionManager()
+        updater.getPluginsMap() >> PLUGINS
+        and:
+        ret == r2
+
+        when:
+        ret = updater.findReleaseMatchingCriteria('nf-foo', '1.5.*')
+        then:
+        manager.getVersionManager() >> new DefaultVersionManager()
+        updater.getPluginsMap() >> PLUGINS
+        and:
+        ret == r2
+
+
+        when:
+        ret = updater.findReleaseMatchingCriteria('nf-foo', '>=2.0')
+        then:
+        manager.getVersionManager() >> new DefaultVersionManager()
+        updater.getPluginsMap() >> PLUGINS
+        and:
+        ret == r4
+    }
 }

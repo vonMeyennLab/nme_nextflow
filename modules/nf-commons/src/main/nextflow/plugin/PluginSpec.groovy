@@ -53,12 +53,13 @@ class PluginSpec implements CacheFunnel {
 
     @Override
     Hasher funnel(Hasher hasher, CacheHelper.HashMode mode) {
-        hasher
-            .putUnencodedChars(id)
-            .putUnencodedChars(version)
+        hasher.putUnencodedChars(id)
+        if( version )
+            hasher.putUnencodedChars(version)
+        return hasher
     }
 
     String toString() {
-        "${id}@${version?:'latest'}"
+        version ? "${id}@${version}" : id
     }
 }

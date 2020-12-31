@@ -62,6 +62,8 @@ class GithubUploader extends DefaultTask {
 
     @Input String userName
 
+    @Input boolean ignore
+
     @Memoized
     private GithubClient getClient() {
         new GithubClient(authToken: authToken, owner: owner, repo: repo.get(), userName: userName)
@@ -76,6 +78,9 @@ class GithubUploader extends DefaultTask {
     }
 
     private void upload(File sourceFile) {
+        if( ignore )
+            return
+
         if( !sourceFile.exists() )
             throw new GradleException("Github upload failed -- Source file does not exists: $sourceFile")
 

@@ -117,6 +117,28 @@ class PluginsFacadeTest extends Specification {
 
     }
 
+    def 'should get plugins list from env' () {
+
+        given:
+        def defaults = new DefaultPlugins(plugins: [
+                'nf-amazon': new PluginSpec('nf-amazon', '0.1.0'),
+                'nf-google': new PluginSpec('nf-google', '0.1.0'),
+                'nf-ignite': new PluginSpec('nf-ignite', '0.1.0'),
+                'nf-tower': new PluginSpec('nf-tower', '0.1.0')
+        ])
+        and:
+        def handler = new PluginsFacade(defaultPlugins: defaults, env: [NXF_PLUGINS_DEFAULT: 'nf-amazon,nf-tower@1.0.1,nf-foo@2.2.0,nf-bar'])
+
+        when:
+        def plugins = handler.defaultPluginsConf([:])
+        then:
+        plugins.size()==4
+        plugins.find { it.id == 'nf-amazon' && it.version=='0.1.0' }    // <-- version from default
+        plugins.find { it.id == 'nf-tower' && it.version=='1.0.1' }     // <-- version from the env var
+        plugins.find { it.id == 'nf-foo' && it.version=='2.2.0' }       // <-- version from tne env var
+        plugins.find { it.id == 'nf-bar' && it.version==null }          // <-- no version 
+    }
+
     @Unroll
     def 'should validate plugins mode' () {
         given:
@@ -139,6 +161,7 @@ class PluginsFacadeTest extends Specification {
         where:
         ENV                             | EXPECTED
         [NXF_PLUGINS_DEFAULT: 'true']   | true
+        [NXF_PLUGINS_DEFAULT: 'nf-amzn']| true
         [NXF_PLUGINS_DEFAULT: 'false']  | false
         [NXF_HOME: 'something']         | true
         [:]                             | false

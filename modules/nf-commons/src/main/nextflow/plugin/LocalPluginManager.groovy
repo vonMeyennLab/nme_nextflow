@@ -29,6 +29,8 @@ import org.pf4j.ManifestPluginDescriptorFinder
 import org.pf4j.PluginDescriptorFinder
 import org.pf4j.PluginLoader
 import org.pf4j.PluginRepository
+import org.pf4j.PluginWrapper
+
 /**
  * Custom plugin manager creating tracking plugins with symlinks to
  * the parent repository
@@ -37,10 +39,11 @@ import org.pf4j.PluginRepository
  */
 @Slf4j
 @CompileStatic
-class LocalPluginManager extends DefaultPluginManager {
+class LocalPluginManager extends CustomPluginManager {
 
     LocalPluginManager(Path root) {
         super(root)
+        if( !root ) throw new IllegalArgumentException("Missing Local plugin root directory")
     }
 
     @Override
@@ -68,6 +71,17 @@ class LocalPluginManager extends DefaultPluginManager {
      */
     @Override
     String loadPlugin(Path pluginPath) {
+        final symlink = createLinkFromPath(pluginPath)
+        super.loadPlugin(symlink)
+    }
+
+    @Override
+    PluginWrapper loadPluginFromPath(Path pluginPath) {
+        final symlink = createLinkFromPath(pluginPath)
+        return super.loadPluginFromPath(symlink)
+    }
+
+    private Path createLinkFromPath(Path pluginPath) {
         if( !pluginPath )
             throw new IllegalArgumentException("Plugin path cannot be null")
         if( !Files.isDirectory(pluginPath) )
@@ -75,11 +89,11 @@ class LocalPluginManager extends DefaultPluginManager {
 
         // create a symlink relative to the current root
         final symlink = getPluginsRoot().resolve(pluginPath.getFileName())
-        createLink(symlink, pluginPath)
-        super.loadPlugin(symlink)
+        createLink0(symlink, pluginPath)
+        return symlink
     }
 
-    private void createLink(Path symlink, Path pluginPath) {
+    private void createLink0(Path symlink, Path pluginPath) {
         try {
             log.trace "Creating local plugins root link: $symlink → $pluginPath"
             Files.createSymbolicLink(symlink, pluginPath)

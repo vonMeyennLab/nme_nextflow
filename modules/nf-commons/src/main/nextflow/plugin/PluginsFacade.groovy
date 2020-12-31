@@ -28,7 +28,6 @@ import nextflow.util.CacheHelper
 import org.pf4j.PluginManager
 import org.pf4j.PluginStateEvent
 import org.pf4j.PluginStateListener
-import org.pf4j.update.UpdateManager
 /**
  * Manage plugins installation and configuration
  * 
@@ -44,8 +43,8 @@ class PluginsFacade implements PluginStateListener {
 
     private String mode
     private Path root
-    private UpdateManager updater
-    private PluginManager manager
+    private PluginUpdater updater
+    private CustomPluginManager manager
     private DefaultPlugins defaultPlugins
 
     PluginsFacade() {
@@ -97,7 +96,7 @@ class PluginsFacade implements PluginStateListener {
     protected boolean getPluginsDefault() {
         if( env.containsKey('NXF_PLUGINS_DEFAULT')) {
             log.trace "Detected NXF_PLUGINS_DEFAULT=$env.NXF_PLUGINS_DEFAULT"
-            return env.NXF_PLUGINS_DEFAULT=='true'
+            return env.NXF_PLUGINS_DEFAULT!='false'
         }
         else if( env.containsKey('NXF_HOME') ) {
             log.trace "Detected NXF_HOME - Using plugins defaults"
@@ -115,22 +114,20 @@ class PluginsFacade implements PluginStateListener {
     }
 
     protected Path localRoot(List<PluginSpec> specs) {
-        if( !specs )
-            return null
-        final unique = CacheHelper.hasher(specs).hash().toString()
+        final unique = specs ? CacheHelper.hasher(specs).hash().toString() : 'empty'
         final localRoot = PLUGINS_LOCAL_ROOT.resolve(unique)
         log.debug "Plugins local root: $localRoot"
         FilesEx.mkdirs(localRoot)
         return localRoot
     }
 
-    protected PluginManager createManager(Path root, List<PluginSpec> specs) {
+    protected CustomPluginManager createManager(Path root, List<PluginSpec> specs) {
         final result = mode!='dev' ? new LocalPluginManager( localRoot(specs) ) : new DevPluginManager(root)
         result.addPluginStateListener(this)
         return result
     }
 
-    protected UpdateManager createUpdater(Path root, PluginManager manager) {
+    protected PluginUpdater createUpdater(Path root, CustomPluginManager manager) {
         return ( mode!='dev'
                 ? new PluginUpdater(manager, root, new URL(Plugins.DEFAULT_PLUGINS_REPO))
                 : new DevPluginUpdater(manager) )
@@ -153,7 +150,7 @@ class PluginsFacade implements PluginStateListener {
         else {
             log.debug "Setting up plugin manager > mode=${mode}; plugins-dir=$root"
             // make sure plugins dir exists
-            if( !FilesEx.mkdirs(root) )
+            if( mode!='dev' && !FilesEx.mkdirs(root) )
                 throw new IOException("Unable to create plugins dir: $root")
             final specs = pluginsRequirement(config)
             init(root, specs)
@@ -181,21 +178,7 @@ class PluginsFacade implements PluginStateListener {
     }
 
     void start(PluginSpec plugin) {
-        final result = manager.getPlugin(plugin.id)
-        if( !result ) {
-            log.debug "Installing plugin $plugin"
-            // install & start the plugin
-            updater.installPlugin(plugin.id, plugin.version)
-        }
-        else if( result.descriptor.version != plugin.version ) {
-            log.debug "Updating plugin $plugin"
-            // update & start the plugin
-            updater.updatePlugin(plugin.id, plugin.version)
-        }
-        else {
-            log.debug "Starting plugin $plugin"
-            manager.startPlugin(plugin.id)
-        }
+        updater.prepareAndStart(plugin.id, plugin.version)
     }
 
     void start(List<PluginSpec> specs) {
@@ -229,6 +212,15 @@ class PluginsFacade implements PluginStateListener {
     }
 
     protected List<PluginSpec> defaultPluginsConf(Map config) {
+        // retrieve the list from the env var
+        final commaSepList = env.get('NXF_PLUGINS_DEFAULT')
+        if( commaSepList && commaSepList !in ['true','false'] ) {
+            return commaSepList
+                    .tokenize(',')
+                    .collect( it-> defaultPlugins.hasPlugin(it) ? defaultPlugins.getPlugin(it) : PluginSpec.parse(it) )
+        }
+
+        // infer from app config
         final plugins = new ArrayList<PluginSpec>()
         final executor = Bolts.navigate(config, 'process.executor')
 
@@ -264,6 +256,11 @@ class PluginsFacade implements PluginStateListener {
             result.add( PluginSpec.parse(it) )
         }
         return result
+    }
+
+
+    synchronized void pullPlugins(List<String> ids) {
+        updater.pullPlugins(ids)
     }
 
 }

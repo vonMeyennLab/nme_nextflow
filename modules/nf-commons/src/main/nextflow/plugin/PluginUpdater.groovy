@@ -26,16 +26,17 @@ import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import nextflow.extension.FilesEx
 import nextflow.file.FileHelper
-import org.pf4j.PluginManager
+import nextflow.file.FileMutex
+import org.pf4j.PluginDependency
 import org.pf4j.PluginRuntimeException
 import org.pf4j.PluginState
+import org.pf4j.PluginWrapper
+import org.pf4j.RuntimeMode
 import org.pf4j.update.DefaultUpdateRepository
 import org.pf4j.update.PluginInfo
 import org.pf4j.update.UpdateManager
 import org.pf4j.update.UpdateRepository
 import org.pf4j.util.FileUtils
-
-import nextflow.file.FileMutex
 /**
  * Implements the download/install/update for nextflow plugins
  *
@@ -48,11 +49,18 @@ import nextflow.file.FileMutex
 @CompileStatic
 class PluginUpdater extends UpdateManager {
 
-    private PluginManager pluginManager
+    private CustomPluginManager pluginManager
 
     private Path pluginsStore
 
-    PluginUpdater(PluginManager pluginManager, Path pluginsRoot, URL repo) {
+    private boolean pullOnly
+
+    protected PluginUpdater(CustomPluginManager pluginManager) {
+        super(pluginManager)
+        this.pluginManager = pluginManager
+    }
+
+    PluginUpdater(CustomPluginManager pluginManager, Path pluginsRoot, URL repo) {
         super(pluginManager, wrap(repo))
         this.pluginsStore = pluginsRoot
         this.pluginManager = pluginManager
@@ -62,6 +70,58 @@ class PluginUpdater extends UpdateManager {
         List<UpdateRepository> result = new ArrayList<>(1)
         result << new DefaultUpdateRepository('nextflow.io', repo)
         return result
+    }
+
+    /**
+     * Resolve a plugin installing or updating the dependencies if necessary
+     * and start the plugin
+     *
+     * @param pluginId The plugin Id
+     * @param version The required version, can be null for the latest version
+     */
+    void prepareAndStart(String pluginId, String version) {
+        final PluginWrapper current = pluginManager.getPlugin(pluginId)
+        if( !current ) {
+            log.debug "Installing plugin ${pluginId} version: ${version ?: 'latest'}"
+            // install & start the plugin
+            installPlugin(pluginId, version)
+        }
+        else if( shouldUpdate(pluginId, version, current) ) {
+            log.debug "Updating plugin ${pluginId} version: ${version ?: 'latest'} [current version: $current.descriptor.version]"
+            // update & start the plugin
+            updatePlugin(pluginId, version)
+        }
+        else {
+            log.debug "Starting plugin ${pluginId} version: ${version ?: 'latest'}"
+            pluginManager.startPlugin(pluginId)
+        }
+    }
+
+    void pullPlugins(List<String> plugins) {
+        pullOnly=true
+        try {
+            final specs = plugins.collect(it -> PluginSpec.parse(it))
+            for( PluginSpec spec : specs ) {
+                pullPlugin0(spec.id, spec.version)
+            }
+        }
+        finally {
+            pullOnly=false
+        }
+    }
+
+    void pullPlugin0(String pluginId, String version) {
+        final PluginWrapper current = pluginManager.getPlugin(pluginId)
+        if( !current ) {
+            log.debug "Installing plugin ${pluginId} version: ${version ?: 'latest'}"
+            // install & start the plugin
+            installPlugin(pluginId, version)
+        }
+        else if( shouldUpdate(pluginId, version, current) ) {
+            log.debug "Updating plugin ${pluginId} version: ${version ?: 'latest'} [current version: $current.descriptor.version]"
+            // update & start the plugin
+            updatePlugin(pluginId, version)
+        }
     }
 
     /**
@@ -87,14 +147,19 @@ class PluginUpdater extends UpdateManager {
             return pluginPath
         }
 
-        // 1. Download to temporary location
+        // 1. determine the version
+        if( !version )
+            version = getLastPluginRelease(id)
+        log.info "Downloading plugin ${id}@${version}"
+
+        // 2. Download to temporary location
         Path downloaded = downloadPlugin(id, version);
 
-        // 2. unzip the content and delete download filed
+        // 3. unzip the content and delete download filed
         Path dir = FileUtils.expandIfZip(downloaded)
         FileHelper.deletePath(downloaded)
 
-        // 3. move the final destination the plugin directory
+        // 4. move the final destination the plugin directory
         assert pluginPath.getFileName() == dir.getFileName()
 
         try {
@@ -139,15 +204,39 @@ class PluginUpdater extends UpdateManager {
     }
 
     private boolean load0(String id, String version) {
+        assert id, "Missing plugin Id"
+
+        if( version == null )
+            version = getLastPluginRelease(id)?.version
+        if( !version )
+            throw new IllegalStateException("Cannot find latest version of $id plugin")
 
         def pluginPath = pluginsStore.resolve("$id-$version")
         if( !FilesEx.exists(pluginPath) ) {
-            pluginPath = safeDownload(id,version)
+            pluginPath = safeDownload(id, version)
         }
 
-        String pluginId = pluginManager.loadPlugin(pluginPath);
-        PluginState state = pluginManager.startPlugin(pluginId);
+        // load the plugin from the file system
+        PluginWrapper wrapper = pluginManager.loadPluginFromPath(pluginPath)
 
+        // pull all required required deps
+        final deps = wrapper.descriptor.dependencies ?: Collections.<PluginDependency>emptyList()
+        for( PluginDependency it : deps ) {
+            final depVersion = findReleaseMatchingCriteria(it.pluginId, it.pluginVersionSupport)?.version
+            log.debug "Plugin $id requires $it.pluginId supported version: $it.pluginVersionSupport - resolved version: $depVersion"
+            if( pullOnly )
+                pullPlugin0(it.pluginId, depVersion)
+            else
+                prepareAndStart(it.pluginId, depVersion)
+        }
+
+        if( pullOnly )
+            return false
+
+        // resolve the plugins
+        pluginManager.resolvePlugins()
+        // finally start it
+        PluginState state = pluginManager.startPlugin(id);
         return PluginState.STARTED == state
     }
 
@@ -175,5 +264,54 @@ class PluginUpdater extends UpdateManager {
         }
 
         load0(id, version)
+    }
+
+    protected boolean shouldUpdate(String pluginId, String version, PluginWrapper current) {
+        if( pluginManager.runtimeMode == RuntimeMode.DEVELOPMENT ) {
+            log.debug "Update not support during dev"
+            return false
+        }
+
+        if( !version )
+            version = getLastPluginRelease(pluginId)?.version
+        if( !version ) {
+            log.warn "Cannot find latest version for plugin $pluginId [skip update]"
+            return false
+        }
+
+        final matches = pluginManager
+                .getVersionManager()
+                .checkVersionConstraint(current.descriptor.version, version)
+
+        // update of the request plugin version is different from the current one
+        return !matches
+    }
+
+    /**
+     * Find lower release version matching the requested constraint e.g.
+     * given 1.5.x and release 1.4.0, 1.5.0 and 1.5.1 are avail it returns 1.5.0
+     *
+     * @param id The plugin id
+     * @param verConstraint The version constraint
+     * @return The plugin release satisfying the requested criteria or null it none is found
+     */
+    protected PluginInfo.PluginRelease findReleaseMatchingCriteria(String id, String verConstraint) {
+        assert verConstraint
+
+        final versionManager = pluginManager.getVersionManager();
+        PluginInfo pluginInfo = getPluginsMap().get(id)
+
+        PluginInfo.PluginRelease lower = null
+        for (PluginInfo.PluginRelease release : pluginInfo.releases) {
+            if( !versionManager.checkVersionConstraint(release.version, verConstraint) || !release.url )
+                continue
+
+            if( lower == null )
+                lower = release
+            else if( versionManager.compareVersions(release.version, lower.version)<0 )
+                lower = release
+        }
+
+        return lower
     }
 }

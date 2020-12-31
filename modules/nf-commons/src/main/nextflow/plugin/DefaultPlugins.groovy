@@ -55,6 +55,9 @@ class DefaultPlugins {
         return result
     }
 
+    boolean hasPlugin(String pluginId) {
+        plugins.containsKey(pluginId)
+    }
 
     List getPlugins() {
         new ArrayList(plugins.values())

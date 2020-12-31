@@ -23,7 +23,6 @@ import java.nio.file.Paths
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import org.pf4j.CompoundPluginRepository
-import org.pf4j.DefaultPluginManager
 import org.pf4j.DevelopmentPluginRepository
 import org.pf4j.ManifestPluginDescriptorFinder
 import org.pf4j.PluginDescriptorFinder
@@ -36,7 +35,7 @@ import org.pf4j.PluginRepository
  */
 @Slf4j
 @CompileStatic
-class DevPluginManager extends DefaultPluginManager {
+class DevPluginManager extends CustomPluginManager {
 
     DevPluginManager(Path root) {
         super(root)

@@ -99,6 +99,7 @@ subprojects {
         userName = github_username
         authToken = github_access_token
         skipExisting = true
+        ignore = (project.name=='nf-alibaba')
     }
 
     task upload(dependsOn: [uploadPlugin] ) { }
