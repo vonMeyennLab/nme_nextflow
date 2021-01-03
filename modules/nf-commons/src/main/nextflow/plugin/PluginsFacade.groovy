@@ -21,10 +21,12 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 import groovy.transform.CompileStatic
+import groovy.transform.Memoized
 import groovy.util.logging.Slf4j
 import nextflow.extension.Bolts
 import nextflow.extension.FilesEx
 import nextflow.util.CacheHelper
+import org.pf4j.DefaultPluginManager
 import org.pf4j.PluginManager
 import org.pf4j.PluginStateEvent
 import org.pf4j.PluginStateListener
@@ -167,11 +169,21 @@ class PluginsFacade implements PluginStateListener {
     }
 
     def <T> List<T> getExtensions(Class<T> type) {
-        if( !manager )
-            setup()
-        manager.getExtensions(type)
+        if( manager ) {
+            return manager.getExtensions(type)
+        }
+        else {
+            // this should oly be used to load system extensions
+            // i.e. included in the app class path not provided by
+            // a plugin extension
+            return defaultManager().getExtensions(type)
+        }
     }
 
+    @Memoized
+    private PluginManager defaultManager() {
+        new DefaultPluginManager()
+    }
 
     void start( String pluginId ) {
          start( defaultPlugins.getPlugin(pluginId) )
@@ -257,7 +269,6 @@ class PluginsFacade implements PluginStateListener {
         }
         return result
     }
-
 
     synchronized void pullPlugins(List<String> ids) {
         updater.pullPlugins(ids)
