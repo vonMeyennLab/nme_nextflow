@@ -141,6 +141,7 @@ class CmdNode extends CmdBase {
      * @throws IllegalStateException when no class implementing {@code DaemonLauncher} is available
      */
     static DaemonLauncher loadDaemonFirst() {
+        Plugins.setup()
         final loader = Plugins.getExtension(DaemonLauncher)
         if( !loader )
             throw new IllegalStateException("No cluster services are available -- Cannot launch Nextflow in cluster mode")
