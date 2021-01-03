@@ -1,5 +1,6 @@
 Manifest-Version: 1.0
 Plugin-Class: nextflow.cloud.alibaba.AlibabaCloudPlugin
 Plugin-Id: nf-alibaba
-Plugin-Provider: Seqera Labs
 Plugin-Version: 0.1.0
+Plugin-Requires: 21.01.0-edge
+Plugin-Provider: Seqera Labs

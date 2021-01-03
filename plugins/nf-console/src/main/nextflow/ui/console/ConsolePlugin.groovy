@@ -4,6 +4,7 @@ import java.util.jar.JarFile
 import java.util.zip.ZipException
 
 import groovy.transform.CompileStatic
+import nextflow.plugin.BasePlugin
 import org.codehaus.groovy.reflection.CachedClass
 import org.codehaus.groovy.reflection.ClassInfo
 import org.codehaus.groovy.runtime.m12n.ExtensionModuleScanner
@@ -17,20 +18,15 @@ import org.pf4j.PluginWrapper
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic
-class ConsolePlugin extends Plugin {
+class ConsolePlugin extends BasePlugin {
 
-    /**
-     * Constructor to be used by plugin manager for plugin instantiation.
-     * Your plugins have to provide constructor with this exact signature to
-     * be successfully loaded by manager.
-     */
     ConsolePlugin(PluginWrapper wrapper) {
         super(wrapper)
     }
 
     @Override
     void start() {
-        log.debug("Starting Nextflow Console plugin")
+        super.start()
         loadExtensions()
     }
 
@@ -90,8 +86,4 @@ class ConsolePlugin extends Plugin {
         }
     }
 
-    @Override
-    void stop() {
-        log.debug("Stopping nextflow console plugin");
-    }
 }

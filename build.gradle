@@ -146,7 +146,7 @@ jar.enabled = false
  */
 task buildInfo { doLast {
 
-    def file0 = file('./modules/nextflow/src/main/groovy/nextflow/Const.groovy')
+    def file0 = file('./modules/nf-commons/src/main/nextflow/Const.groovy')
     def buildNum = 0
     def src = file0.text
     src.find(/APP_BUILDNUM *= *([0-9]*)/) { buildNum = it[1]?.toInteger()+1 }

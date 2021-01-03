@@ -1,37 +1,18 @@
 package nextflow.cloud.alibaba
 
-import groovy.transform.CompileStatic;
-import org.pf4j.Plugin;
-import org.pf4j.PluginWrapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import groovy.transform.CompileStatic
+import nextflow.plugin.BasePlugin
+import org.pf4j.PluginWrapper
 /**
  * Alibaba cloud plugin entry point
  * 
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @CompileStatic
-class AlibabaCloudPlugin extends Plugin {
+class AlibabaCloudPlugin extends BasePlugin {
 
-    private static final Logger log = LoggerFactory.getLogger(AlibabaCloudPlugin.class);
-
-    /**
-     * Constructor to be used by plugin manager for plugin instantiation.
-     * Your plugins have to provide constructor with this exact signature to
-     * be successfully loaded by manager.
-     */
     AlibabaCloudPlugin(PluginWrapper wrapper) {
         super(wrapper);
     }
 
-    @Override
-    void start() {
-        log.debug("Starting Alibaba Cloud plugin");
-    }
-
-    @Override
-    void stop() {
-        log.debug("Stopping Alibaba Cloud plugin");
-    }
 }
