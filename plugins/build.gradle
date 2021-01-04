@@ -55,7 +55,7 @@ subprojects {
     version = verFromManifest(file('src/resources/META-INF/MANIFEST.MF'))
     
     /*
-     * Creates plugin zip and json meta file in plugin `build/libs` directory
+     * Creates plugin zip and json meta file in the plugin `build/libs` directory
      */
     task makeZip(type: Jar) {
         into('classes') { with jar }
@@ -80,16 +80,33 @@ subprojects {
         }
     }
 
+    /*
+     * Copy the plugin dependencies in the subproject `build/target/libs` directory
+     */
     task copyPluginLibs(type: Sync) {
         from configurations.compile
         into 'build/target/libs'
     }
 
+    /*
+     * Copy the plugin in the project root build/plugins directory
+     */
     task copyPluginZip(type: Copy) {
         from makeZip
         into "$rootProject.buildDir/plugins"
     }
 
+    /*
+     * Unzip the plugin artifact in the project root build/plugins directory
+     */
+    task unzipPlugin(type: Copy, dependsOn: copyPluginZip) {
+        from zipTree("$rootProject.buildDir/plugins/${project.name}-${project.version}.zip")
+        into "$rootProject.buildDir/plugins/${project.name}-${project.version}"
+    }
+
+    /*
+     * Upload the plugin zip & json meta file to the corresponding GitHub repo
+     */
     task uploadPlugin(type: GithubUploader, dependsOn: makeZip) {
         assets = providers.provider {["$buildDir/libs/${project.name}-${project.version}.zip",
                                       "$buildDir/libs/${project.name}-${project.version}-meta.json" ]}
@@ -102,15 +119,26 @@ subprojects {
         ignore = (project.name=='nf-alibaba')
     }
 
-    task upload(dependsOn: [uploadPlugin] ) { }
 }
 
-task upload(dependsOn: [subprojects.upload]) { }
+/*
+ * Upload all plugins to the corresponding GitHub repos
+ */
+task upload(dependsOn: subprojects.uploadPlugin) { }
 
+/*
+ * Copies the plugins required dependencies in the corresponding lib directory
+ */
 classes.dependsOn subprojects.copyPluginLibs
-assemble.dependsOn subprojects.copyPluginZip
 
+/*
+ * "install" the plugin the project root build/plugins directory
+ */
+assemble.dependsOn subprojects.unzipPlugin
 
+/*
+ * Merge and publish the plugins index file
+ */
 task publishIndex( type: GithubRepositoryPublisher ) {
     indexUrl = 'https://github.com/nextflow-io/plugins/main/plugins.json'
     repos = allPlugins() - 'nf-alibaba'
