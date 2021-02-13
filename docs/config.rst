@@ -261,7 +261,7 @@ dumpInterval          Determines how often the executor status is written in the
 queueStatInterval     Determines how often the queue status is fetched from the cluster system. This setting is used only by grid executors (default: ``1min``).
 exitReadTimeout       Determines how long the executor waits before return an error status when a process is terminated but the `exit` file does not exist or it is empty. This setting is used only by grid executors (default: ``270 sec``).
 killBatchSize         Determines the number of jobs that can be `killed` in a single command execution (default: ``100``).
-submitRateLimit       Determines the max rate of jobs that can be executed per time unit, for example ``'10 sec'`` eg. max 10 jobs per second (default: `unlimited`).
+submitRateLimit       Determines the max rate of job submission per time unit, for example ``'10sec'`` eg. max 10 jobs per second or ``'50/2min'`` i.e. 50 job submissions every 2 minutes (default: `unlimited`).
 perJobMemLimit        Specifies Platform LSF *per-job* memory limit mode. See :ref:`lsf-executor`.
 jobName               Determines the name of jobs submitted to the underlying cluster executor e.g. ``executor.jobName = { "$task.name - $task.hash" }`` .
 cpus                  The maximum number of CPUs made available by the underlying system (only used by the ``local`` executor).
@@ -407,7 +407,7 @@ Read :ref:`podman-page` page to learn more how use Podman containers with Nextfl
 .. _config-charliecloud:
 
 Scope `charliecloud`
---------------
+--------------------
 
 The ``charliecloud`` configuration scope controls how `Charliecloud <https://hpc.github.io/charliecloud/>`_ containers are executed by Nextflow.
 
@@ -418,6 +418,7 @@ Name                Description
 ================== ================
 enabled             Turn this flag to ``true`` to enable Charliecloud execution (default: ``false``).
 envWhitelist        Comma separated list of environment variable names to be included in the container environment.
+temp                Mounts a path of your choice as the ``/tmp`` directory in the container. Use the special value ``auto`` to create a temporary directory each time a container is created.
 runOptions          This attribute can be used to provide any extra command line options supported by the ``ch-run`` command.
 cacheDir            The directory where remote Charliecloud images are stored. When using a computing cluster it must be a shared folder accessible to all computing nodes.
 pullTimeout         The amount of time the Charliecloud pull can last, exceeding which the process is terminated (default: ``20 min``).

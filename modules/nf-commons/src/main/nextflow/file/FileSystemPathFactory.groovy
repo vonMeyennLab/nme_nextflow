@@ -20,15 +20,15 @@ package nextflow.file
 import java.nio.file.Path
 
 import groovy.transform.CompileStatic
-import groovy.transform.Memoized
+import groovy.util.logging.Slf4j
 import nextflow.plugin.Plugins
 import org.pf4j.ExtensionPoint
-
 /**
  * Generic interface
  * 
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Slf4j
 @CompileStatic
 abstract class FileSystemPathFactory implements ExtensionPoint {
 
@@ -55,6 +55,7 @@ abstract class FileSystemPathFactory implements ExtensionPoint {
 
     static Path parse(String uri) {
         final factories = factories0()
+        log.trace "File system path factories: ${factories}"
         for( int i=0; i<factories.size(); i++ ) {
             final result = factories[i].parseUri(uri)
             if( result )
@@ -73,12 +74,12 @@ abstract class FileSystemPathFactory implements ExtensionPoint {
         return null
     }
 
-    @Memoized
     private static List<FileSystemPathFactory> factories0() {
-        final result = new ArrayList(10)
+        final factories = new ArrayList(10)
         final itr = Plugins.getExtensions(FileSystemPathFactory).iterator()
         while( itr.hasNext() )
-            result.add(itr.next())
-        return result
+            factories.add(itr.next())
+        return factories
     }
+
 }

@@ -170,14 +170,16 @@ class AwsBatchFileCopyStrategyTest extends Specification {
                             pid=("${copy[@]}")
                     
                             if ((${#pid[@]}>=$max)); then
-                              sleep 1
+                              sleep 0.2
                             else
                               eval "${cmd[$i]}" &
                               pid+=($!)
                               ((i+=1))
                             fi
                         done
-                        ((${#pid[@]}>0)) && wait ${pid[@]}
+                        for p in "${pid[@]}"; do
+                            wait $p
+                        done
                         )
                         unset IFS
                     }
@@ -255,14 +257,16 @@ class AwsBatchFileCopyStrategyTest extends Specification {
                         pid=("${copy[@]}")
                 
                         if ((${#pid[@]}>=$max)); then
-                          sleep 1
+                          sleep 0.2
                         else
                           eval "${cmd[$i]}" &
                           pid+=($!)
                           ((i+=1))
                         fi
                     done
-                    ((${#pid[@]}>0)) && wait ${pid[@]}
+                    for p in "${pid[@]}"; do
+                        wait $p
+                    done
                     )
                     unset IFS
                 }

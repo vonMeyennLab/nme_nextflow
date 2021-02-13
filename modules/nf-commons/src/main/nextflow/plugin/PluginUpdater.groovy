@@ -24,6 +24,7 @@ import java.nio.file.Path
 
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
+import nextflow.Const
 import nextflow.extension.FilesEx
 import nextflow.file.FileHelper
 import nextflow.file.FileMutex
@@ -163,13 +164,37 @@ class PluginUpdater extends UpdateManager {
         assert pluginPath.getFileName() == dir.getFileName()
 
         try {
-            Files.move(dir, pluginPath, REPLACE_EXISTING, ATOMIC_MOVE);
+            safeMove(dir, pluginPath)
         }
         catch (IOException e) {
             throw new PluginRuntimeException(e, "Failed to write file '$pluginPath' to plugins folder");
         }
 
         return pluginPath
+    }
+
+    protected void safeMove(Path source, Path target) {
+        try {
+            Files.move(source, target, ATOMIC_MOVE, REPLACE_EXISTING)
+        }
+        catch (IOException e) {
+            log.debug "Failed atomic move for pluging $source -> $target - Reason: ${e.message ?: e} - Fallback on safe move"
+            safeMove0(source, target)
+        }
+    }
+
+    protected void safeMove0(Path source, Path target) {
+        // make sure to the target path does not exist
+        FileHelper.deletePath(target)
+        // copy the source to the more
+        FileHelper.copyPath(source, target)
+        // finally remove the source
+        try {
+            FileHelper.deletePath(source)
+        }
+        catch (IOException e) {
+            log.warn("Unable to deleting plugin directory: $source", e)
+        }
     }
 
     /**
@@ -300,10 +325,15 @@ class PluginUpdater extends UpdateManager {
 
         final versionManager = pluginManager.getVersionManager();
         PluginInfo pluginInfo = getPluginsMap().get(id)
+        if( !pluginInfo )
+            throw new IllegalArgumentException("Unknown plugin id: $id")
 
         PluginInfo.PluginRelease lower = null
         for (PluginInfo.PluginRelease release : pluginInfo.releases) {
             if( !versionManager.checkVersionConstraint(release.version, verConstraint) || !release.url )
+                continue
+
+            if( !versionManager.checkVersionConstraint(Const.APP_VER, release.requires) )
                 continue
 
             if( lower == null )
